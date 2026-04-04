@@ -1,7 +1,8 @@
 A Streamlit web application implementing Professor Aswath Damodaran's (NYU Stern) equity valuation
 framework. Scan the S&P 500, NASDAQ 100, or any custom list of stocks for value creation signals, intrinsic
 value estimates, and value trap flags -- all cached locally in SQLite.
-
+Please use it from Streamlit Community Cloud here https://vgooqrzqsfawixppxhfgnf.streamlit.app/
+Please go ahead and tweak and contribute to the larger community.
 
 
 Limitations & Disclaimer- 
