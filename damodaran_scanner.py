@@ -433,8 +433,9 @@ def render_scanner():
     dcols+=["Margin of Safety %","P/E","EV/EBITDA","FCF Yield %","Rev Growth %","ROE %","Op Margin %","Debt/Equity","Trap Count"]
     dcols=[c for c in dcols if c in df.columns]
     styled=df[dcols].style
-    if "Value Signal" in dcols:styled=styled.applymap(_cs,subset=["Value Signal"])
-    if "Margin of Safety %" in dcols:styled=styled.applymap(_cm,subset=["Margin of Safety %"])
+    _style_fn = styled.map if hasattr(styled, "map") else styled.applymap
+    if "Value Signal" in dcols:styled=_style_fn(_cs,subset=["Value Signal"])
+    if "Margin of Safety %" in dcols:styled=_style_fn(_cm,subset=["Margin of Safety %"])
     st.dataframe(styled,hide_index=True,use_container_width=True,height=min(800,40*(len(df)+1)))
     st.download_button("📥 Download CSV",df.to_csv(index=False),f"damodaran_{sg}.csv","text/csv",use_container_width=True)
 
