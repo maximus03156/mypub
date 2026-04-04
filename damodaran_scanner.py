@@ -38,11 +38,22 @@ import os
 import warnings
 import damodaran_db as db
 
+import threading
 try:
     from curl_cffi import requests as _curl_requests
-    _YF_SESSION = _curl_requests.Session(impersonate="chrome")
+    _curl_available = True
 except ImportError:
-    _YF_SESSION = None
+    _curl_available = False
+
+_thread_local = threading.local()
+
+def _get_session():
+    """Return a thread-local curl_cffi session, creating one if needed."""
+    if not _curl_available:
+        return None
+    if not getattr(_thread_local, "session", None):
+        _thread_local.session = _curl_requests.Session(impersonate="chrome")
+    return _thread_local.session
 
 warnings.filterwarnings("ignore")
 
@@ -128,7 +139,8 @@ def get_index_members(name):
     return members
 
 def _yf_ticker(symbol):
-    return yf.Ticker(symbol, session=_YF_SESSION) if _YF_SESSION else yf.Ticker(symbol)
+    s = _get_session()
+    return yf.Ticker(symbol, session=s) if s else yf.Ticker(symbol)
 
 def fetch_company_data(ticker):
     try:
@@ -143,7 +155,8 @@ def fetch_live_quotes_yf(tickers):
     result={}
     try:
         dl_kwargs=dict(period="2d",interval="1d",group_by="ticker",auto_adjust=True,progress=False,threads=True)
-        if _YF_SESSION:dl_kwargs["session"]=_YF_SESSION
+        s=_get_session()
+        if s:dl_kwargs["session"]=s
         raw=yf.download(tickers,**dl_kwargs)
         for tk in tickers:
             try:
@@ -373,10 +386,10 @@ def render_scanner():
 
     show_cache_info(sg)
     b1,b2,b3=st.columns(3)
-    with b1:load_btn=st.button("📦 Load Cached",use_container_width=True)
-    with b2:scan_btn=st.button("🚀 Run Fresh Scan",type="primary",use_container_width=True)
+    with b1:load_btn=st.button("📦 Load Cached",width="stretch")
+    with b2:scan_btn=st.button("🚀 Run Fresh Scan",type="primary",width="stretch")
     with b3:
-        if st.button("🔄 Refresh (Clear Cache)",use_container_width=True):
+        if st.button("🔄 Refresh (Clear Cache)",width="stretch"):
             db.clear_scan_results(sg);st.success("Cache cleared.");st.rerun()
 
     df=pd.DataFrame()
@@ -399,7 +412,7 @@ def render_scanner():
     show_live=False
     if live_on:
         with lc2:
-            if st.button("🔄 Refresh Prices",use_container_width=True):st.session_state.pop(f"lq_{sg}",None)
+            if st.button("🔄 Refresh Prices",width="stretch"):st.session_state.pop(f"lq_{sg}",None)
         syms=df["Symbol"].tolist()
         cq=db.load_live_quotes(syms,max_age_s=60);miss=[s for s in syms if s not in cq]
         if miss:
@@ -422,9 +435,9 @@ def render_scanner():
 
     st.divider()
     c1,c2=st.columns(2)
-    with c1:st.plotly_chart(_build_roic_wacc(df),use_container_width=True)
-    with c2:st.plotly_chart(_build_score(df),use_container_width=True)
-    st.plotly_chart(_build_mos(df),use_container_width=True)
+    with c1:st.plotly_chart(_build_roic_wacc(df),width="stretch")
+    with c2:st.plotly_chart(_build_score(df),width="stretch")
+    st.plotly_chart(_build_mos(df),width="stretch")
     st.divider()
 
     st.markdown("### Full results")
@@ -436,8 +449,8 @@ def render_scanner():
     _style_fn = styled.map if hasattr(styled, "map") else styled.applymap
     if "Value Signal" in dcols:styled=_style_fn(_cs,subset=["Value Signal"])
     if "Margin of Safety %" in dcols:styled=_style_fn(_cm,subset=["Margin of Safety %"])
-    st.dataframe(styled,hide_index=True,use_container_width=True,height=min(800,40*(len(df)+1)))
-    st.download_button("📥 Download CSV",df.to_csv(index=False),f"damodaran_{sg}.csv","text/csv",use_container_width=True)
+    st.dataframe(styled,hide_index=True,width="stretch",height=min(800,40*(len(df)+1)))
+    st.download_button("📥 Download CSV",df.to_csv(index=False),f"damodaran_{sg}.csv","text/csv",width="stretch")
 
 def render_deep_dive():
     st.markdown("## 🎯 Deep Dive Analysis")
@@ -495,13 +508,13 @@ def render_benchmarks():
         w=S_WACC[s];r=S_ROIC[s];sp=r-w
         rows.append({"Sector":s,"WACC (%)":round(w*100,2),"ROIC (%)":round(r*100,2),"Spread (%)":round(sp*100,2),"Avg EV/EBITDA":S_EV[s],"Creation":"✅" if sp>0 else "❌"})
     df=pd.DataFrame(rows).sort_values("Spread (%)",ascending=False)
-    st.dataframe(df,hide_index=True,use_container_width=True)
+    st.dataframe(df,hide_index=True,width="stretch")
     fig=go.Figure()
     fig.add_trace(go.Bar(x=df["Sector"],y=df["ROIC (%)"],name="ROIC",marker_color=C["up"]))
     fig.add_trace(go.Bar(x=df["Sector"],y=df["WACC (%)"],name="WACC",marker_color=C["down"]))
     fig.update_layout(title="ROIC vs WACC by sector",barmode="group",plot_bgcolor="#0e1117",paper_bgcolor="#0e1117",font=dict(color=C["text"]),height=450,legend=dict(orientation="h",y=-.2))
     fig.update_xaxes(gridcolor="#1e2330",tickangle=45);fig.update_yaxes(gridcolor="#1e2330",title_text="%")
-    st.plotly_chart(fig,use_container_width=True)
+    st.plotly_chart(fig,width="stretch")
 
 def render_cache():
     st.markdown("## 💾 Cache Manager")
@@ -514,14 +527,14 @@ def render_cache():
             a=f"{int(el.total_seconds()/60)}m" if el.total_seconds()<3600 else (f"{el.total_seconds()/3600:.1f}h" if el.total_seconds()<86400 else f"{el.days}d")
         except:a="?";lr=None
         rows.append({"Group":g["scan_group"],"Stocks":g["ticker_count"],"Last Run":lr.strftime("%Y-%m-%d %H:%M") if lr else "—","Age":a,"Duration":f"{g['duration_s']:.1f}s" if g.get("duration_s") else "—"})
-    st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+    st.dataframe(pd.DataFrame(rows),hide_index=True,width="stretch")
     st.divider()
     cg=st.selectbox("Clear cache for:",[g["scan_group"] for g in groups])
     c1,c2=st.columns(2)
     with c1:
-        if st.button(f"🗑️ Clear '{cg}'",use_container_width=True):db.clear_scan_results(cg);st.success("Cleared.");st.rerun()
+        if st.button(f"🗑️ Clear '{cg}'",width="stretch"):db.clear_scan_results(cg);st.success("Cleared.");st.rerun()
     with c2:
-        if st.button("🗑️ Clear ALL",use_container_width=True):
+        if st.button("🗑️ Clear ALL",width="stretch"):
             for g in groups:db.clear_scan_results(g["scan_group"])
             st.success("All cleared.");st.rerun()
     if os.path.exists(db.DB_PATH):st.caption(f"DB: {db.DB_PATH} ({os.path.getsize(db.DB_PATH)/1024/1024:.2f} MB)")
