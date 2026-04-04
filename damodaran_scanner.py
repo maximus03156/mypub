@@ -142,13 +142,20 @@ def _yf_ticker(symbol):
     s = _get_session()
     return yf.Ticker(symbol, session=s) if s else yf.Ticker(symbol)
 
-def fetch_company_data(ticker):
-    try:
-        t=_yf_ticker(ticker);info=t.info or {}
-        inc=getattr(t,"income_stmt",None)
-        if inc is None or (hasattr(inc,"empty") and inc.empty):inc=t.financials
-        return {"info":info,"financials":inc,"balance":t.balance_sheet,"cashflow":t.cashflow,"fast_info":t.fast_info}
-    except:return {}
+def fetch_company_data(ticker, _retries=3):
+    for attempt in range(_retries):
+        try:
+            t=_yf_ticker(ticker);info=t.info or {}
+            if not info and attempt < _retries-1:
+                time.sleep(2**attempt); continue
+            inc=getattr(t,"income_stmt",None)
+            if inc is None or (hasattr(inc,"empty") and inc.empty):inc=t.financials
+            return {"info":info,"financials":inc,"balance":t.balance_sheet,"cashflow":t.cashflow,"fast_info":t.fast_info}
+        except Exception as e:
+            if attempt < _retries-1:
+                time.sleep(2**attempt)
+            continue
+    return {}
 
 def fetch_live_quotes_yf(tickers):
     if not tickers:return {}
@@ -257,13 +264,18 @@ def compute_metrics(ticker,data):
 
 def run_scan(tickers,scan_group,progress_bar=None):
     t0=time.time();total=len(tickers);results=[]
+    # Pre-warm one session so the cookie/crumb is established before threads start
+    try:
+        _t=_yf_ticker(tickers[0]);_=_t.fast_info.last_price
+    except:pass
+
     def _proc(tk):
         try:
             d=fetch_company_data(tk)
             if not d:return None
             return compute_metrics(tk,d)
         except:return None
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
         futures={pool.submit(_proc,tk):tk for tk in tickers}
         for i,(fut) in enumerate(concurrent.futures.as_completed(futures),1):
             m=fut.result()
