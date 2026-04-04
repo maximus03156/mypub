@@ -1,9 +1,21 @@
 A Streamlit web application implementing Professor Aswath Damodaran's (NYU Stern) equity valuation
 framework. Scan the S&P 500, NASDAQ 100, or any custom list of stocks for value creation signals, intrinsic
 value estimates, and value trap flags -- all cached locally in SQLite.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Please use it from Streamlit Community Cloud here https://vgooqrzqsfawixppxhfgnf.streamlit.app/
 Please go ahead and tweak and contribute to the larger community.
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Based on Prof. Aswath Damodaran's valuation frameworks (NYU Stern).
+Three pillars
 
+Pillar 1: Value creation (ROIC vs WACC) — A company creates value only when ROIC exceeds WACC. The spread determines whether growth benefits shareholders.
+
+Pillar 2: Intrinsic value (DCF) — Two-stage FCFF model: 5 years at current growth, 5 years fading to terminal, discounted at company-specific WACC.
+
+Pillar 3: Value trap detection — Five automated flags: low P/E + ROIC < WACC, high leverage + thin margins, declining revenue, negative FCF, leveraged ROE.
+Architecture
+
+ --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 Limitations & Disclaimer- 
 Data quality: All fundamental data is sourced from Yahoo Finance via yFinance. Data may be delayed,
