@@ -35,6 +35,7 @@ from datetime import datetime, timedelta
 import concurrent.futures
 import time
 import os
+import io
 import warnings
 import damodaran_db as db
 
@@ -103,7 +104,7 @@ def _fetch_wiki_index(name):
         if name=="S&P 500":
             url="https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
             html=requests.get(url,headers=HEADERS,timeout=15).text
-            df=pd.read_html(html)[0]
+            df=pd.read_html(io.StringIO(html))[0]
             sc="Symbol" if "Symbol" in df.columns else df.columns[0]
             nc="Security" if "Security" in df.columns else None
             sec="GICS Sector" if "GICS Sector" in df.columns else None
@@ -111,7 +112,7 @@ def _fetch_wiki_index(name):
         elif name=="NASDAQ 100":
             url="https://en.wikipedia.org/wiki/Nasdaq-100"
             html=requests.get(url,headers=HEADERS,timeout=15).text
-            tables=pd.read_html(html)
+            tables=pd.read_html(io.StringIO(html))
             df=None
             for t in tables:
                 str_cols=[str(c) for c in t.columns]
